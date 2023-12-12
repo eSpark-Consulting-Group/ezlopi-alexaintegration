@@ -25265,6 +25265,7 @@ LOAD esp-idf/spiffs/libspiffs.a
 LOAD esp-idf/ulp/libulp.a
 LOAD esp-idf/wifi_provisioning/libwifi_provisioning.a
 LOAD esp-idf/main/libmain.a
+LOAD esp-idf/AsyncTCP-master/libAsyncTCP-master.a
 LOAD esp-idf/fauxmoESP/libfauxmoESP.a
 LOAD esp-idf/asio/libasio.a
 LOAD esp-idf/cbor/libcbor.a
@@ -25291,6 +25292,7 @@ LOAD esp-idf/protocomm/libprotocomm.a
 LOAD esp-idf/protobuf-c/libprotobuf-c.a
 LOAD esp-idf/mdns/libmdns.a
 LOAD esp-idf/json/libjson.a
+LOAD esp-idf/AsyncTCP-master/libAsyncTCP-master.a
 LOAD esp-idf/esp_ringbuf/libesp_ringbuf.a
 LOAD esp-idf/efuse/libefuse.a
 LOAD esp-idf/esp_ipc/libesp_ipc.a

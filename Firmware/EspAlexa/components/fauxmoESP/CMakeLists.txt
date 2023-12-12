@@ -6,4 +6,6 @@ idf_component_register(SRCS "fauxmoESP.cpp"
                             esp_netif
                             mbedtls
                             freertos
+                            AsyncTCP-master
+                            esp_wifi
 )

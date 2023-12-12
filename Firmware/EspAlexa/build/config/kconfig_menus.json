@@ -2053,6 +2053,74 @@
                 "children": [
                     {
                         "children": [],
+                        "depends_on": "<choice ASYNC_TCP_RUNNING_CORE>",
+                        "help": null,
+                        "id": "ASYNC_TCP_RUN_CORE0",
+                        "name": "ASYNC_TCP_RUN_CORE0",
+                        "range": null,
+                        "title": "CORE 0",
+                        "type": "bool"
+                    },
+                    {
+                        "children": [],
+                        "depends_on": "<choice ASYNC_TCP_RUNNING_CORE>",
+                        "help": null,
+                        "id": "ASYNC_TCP_RUN_CORE1",
+                        "name": "ASYNC_TCP_RUN_CORE1",
+                        "range": null,
+                        "title": "CORE 1",
+                        "type": "bool"
+                    },
+                    {
+                        "children": [],
+                        "depends_on": "<choice ASYNC_TCP_RUNNING_CORE>",
+                        "help": null,
+                        "id": "ASYNC_TCP_RUN_NO_AFFINITY",
+                        "name": "ASYNC_TCP_RUN_NO_AFFINITY",
+                        "range": null,
+                        "title": "BOTH",
+                        "type": "bool"
+                    }
+                ],
+                "depends_on": null,
+                "help": "Select on which core AsyncTCP is running",
+                "id": "asynctcp-configuration-core-on-which-asynctcp-s-thread-is-running",
+                "name": "ASYNC_TCP_RUNNING_CORE",
+                "title": "Core on which AsyncTCP's thread is running",
+                "type": "choice"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": null,
+                "id": "ASYNC_TCP_RUNNING_CORE",
+                "name": "ASYNC_TCP_RUNNING_CORE",
+                "range": null,
+                "title": null,
+                "type": "int"
+            },
+            {
+                "children": [],
+                "depends_on": null,
+                "help": "Enable WDT for the AsyncTCP task, so it will trigger if a handler is locking the thread.",
+                "id": "ASYNC_TCP_USE_WDT",
+                "name": "ASYNC_TCP_USE_WDT",
+                "range": null,
+                "title": "Enable WDT for the AsyncTCP task",
+                "type": "bool"
+            }
+        ],
+        "depends_on": null,
+        "id": "asynctcp-configuration",
+        "title": "AsyncTCP Configuration",
+        "type": "menu"
+    },
+    {
+        "children": [
+            {
+                "children": [
+                    {
+                        "children": [],
                         "depends_on": "<choice COMPILER_OPTIMIZATION>",
                         "help": null,
                         "id": "COMPILER_OPTIMIZATION_DEFAULT",
