@@ -12,10 +12,11 @@
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include <sys/socket.h>
 
-// -----------------------------------------------------------------------------
-// UDP
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// // UDP
+// // -----------------------------------------------------------------------------
 
 void fauxmoESP::_sendUDPResponse(int udp_socket, struct sockaddr_in *dest_addr) 
 {
@@ -37,7 +38,7 @@ void fauxmoESP::_sendUDPResponse(int udp_socket, struct sockaddr_in *dest_addr)
     dest_address.sin_family = AF_INET;
     dest_address.sin_port = htons(1900);
 
-    if (sendto(udp_socket, response, strlen(response), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) 
+    if (sendto(_udpSocket, response, strlen(response), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) 
     {
         ESP_LOGE("UDP", "Error sending UDP response");
     } 
@@ -53,7 +54,7 @@ void fauxmoESP::_handleUDP() {
     socklen_t socklen = sizeof(source_addr);
     char buffer[UDP_BUFFER_SIZE];
 
-	int len = recvfrom(udp_socket, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
+	int len = recvfrom(_udpSocket, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
     if (len > 0) {
 
 
@@ -66,16 +67,16 @@ void fauxmoESP::_handleUDP() {
         const char* request = buffer;
         if(strstr(request,"M-SEARCH") != NULL) {
             if (strstr(request,"ssdp:discover") != NULL || strstr(request,"upnp:rootdevice") != NULL || strstr(request,"device:basic:1") != NULL) {
-                _sendUDPResponse(udp_socket, &source_addr);
+                _sendUDPResponse(_udpSocket, &source_addr);
             }
         }
     }
 }
 
 
-// -----------------------------------------------------------------------------
-// TCP
-// -----------------------------------------------------------------------------
+// // -----------------------------------------------------------------------------
+// // TCP
+// // -----------------------------------------------------------------------------
 
 void fauxmoESP::_sendTCPResponse(AsyncClient *client, const char * code, char * body, const char * mime) {
 
@@ -401,17 +402,21 @@ void fauxmoESP::_onTCPClient(AsyncClient *client) {
 // -----------------------------------------------------------------------------
 // Devices
 // -----------------------------------------------------------------------------
+fauxmoESP::fauxmoESP() {
+    _udpSocket = -1;
+}
 
 fauxmoESP::~fauxmoESP() {
-  	
+	if (_udpSocket >= 0) {
+        close(_udpSocket);
+        ESP_LOGI("FAUXMO", "UDP socket closed");
+    }
 	// Free the name for each device
 	for (auto& device : _devices) {
 		free(device.name);
   	}
-  	
 	// Delete devices  
 	_devices.clear();
-
 }
 
 void fauxmoESP::setDeviceUniqueId(unsigned char id, const char *uniqueid)
@@ -519,39 +524,48 @@ void fauxmoESP::handle() {
 }
 
 void fauxmoESP::enable(bool enable) {
-
-	if (enable == _enabled) return;
+    if (enable == _enabled) return;
     _enabled = enable;
-	if (_enabled) {
-		DEBUG_MSG_FAUXMO("[FAUXMO] Enabled\n");
-	} else {
-		DEBUG_MSG_FAUXMO("[FAUXMO] Disabled\n");
-	}
 
     if (_enabled) {
+        // Start UDP server
+		ESP_LOGI("UDP","IN UDP BEFORE SOCKET!");
+        _udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+        if (_udpSocket < 0) {
+            ESP_LOGE("FAUXMO", "Error creating UDP socket: %s", strerror(errno));
+            return;
+        }
 
-		// Start TCP server if internal
-		if (_internal) {
-			if (NULL == _server) {
-				_server = new AsyncServer(_tcp_port);
-				_server->onClient([this](void *s, AsyncClient* c) {
-					_onTCPClient(c);
-				}, 0);
-			}
-			_server->begin();
-		}
+        struct sockaddr_in udp_bind_addr;
+        memset(&udp_bind_addr, 0, sizeof(udp_bind_addr));
+        udp_bind_addr.sin_family = AF_INET;
+        udp_bind_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        udp_bind_addr.sin_port = htons(1900);
 
-		// UDP setup
-	struct ip_mreq mreq;
-    mreq.imr_multiaddr.s_addr = inet_addr("239.255.255.250");
-    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+        if (bind(_udpSocket, (struct sockaddr*)&udp_bind_addr, sizeof(udp_bind_addr)) < 0) {
+            ESP_LOGE("FAUXMO", "Error binding UDP socket: %s", strerror(errno));
+            close(_udpSocket);
+            return;
+        }
 
-    if (setsockopt(udp_socket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-        ESP_LOGE("UDP", "Failed to join multicast group");
-        close(udp_socket);
-        return;
+        // Join multicast group
+        struct ip_mreq mreq;
+        mreq.imr_multiaddr.s_addr = inet_addr("239.255.255.250");
+        mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+
+        if (setsockopt(_udpSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+            ESP_LOGE("FAUXMO", "Failed to join multicast group: %s", strerror(errno));
+            close(_udpSocket);
+            return;
+        }
+
+        DEBUG_MSG_FAUXMO("[FAUXMO] UDP server started\n");
+    } else {
+        // Stop UDP server
+        if (_udpSocket >= 0) {
+            close(_udpSocket);
+            _udpSocket = -1;
+            DEBUG_MSG_FAUXMO("[FAUXMO] UDP server stopped\n");
+        }
     }
-    else
-		DEBUG_MSG_FAUXMO("[FAUXMO] UDP server started\n");
-	}
 }

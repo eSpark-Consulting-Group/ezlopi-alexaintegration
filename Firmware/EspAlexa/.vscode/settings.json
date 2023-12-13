@@ -14,6 +14,7 @@
     "idf.pythonBinPathWin": "C:\\Users\\eSpark\\.espressif\\python_env\\idf4.4_py3.11_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "C:\\Users\\eSpark\\.espressif",
     "files.associations": {
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "*.inc": "cpp"
     }
 }

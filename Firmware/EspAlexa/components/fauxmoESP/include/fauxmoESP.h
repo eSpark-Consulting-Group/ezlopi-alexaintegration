@@ -3,9 +3,11 @@
 
 #include <string>
 #include <vector>
+#include "lwip/udp.h"
 #include <functional>
 #include <AsyncTCP.h>
 #include "templates.h"
+#include "lwip/sockets.h"
 
 #define FAUXMO_UDP_MULTICAST_IP     IPADDR4_INIT_BYTES(239,255,255,250)
 #define FAUXMO_UDP_MULTICAST_PORT   1900
@@ -33,9 +35,6 @@
 #define DEBUG_FAUXMO_VERBOSE_UDP    true
 #endif
 
-// #include "lwip/pbuf.h"
-// #include "lwip/tcp.h"
-// #include "lwip/ip_addr.h"
 #include "esp_netif_ip_addr.h"
 #include "esp_http_client.h"
 
@@ -53,7 +52,7 @@ typedef struct {
 class fauxmoESP {
 
     public:
-
+        fauxmoESP();
         ~fauxmoESP();
 
         unsigned char addDevice(const char * device_name);
@@ -85,7 +84,7 @@ class fauxmoESP {
 
         char* _deviceJson(unsigned char id, bool all); 	// all = true means we are listing all devices so use full description template
         
-        int udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
+        int _udpSocket;
         void _handleUDP();
         void _onUDPData(const esp_ip4_addr_t remoteIP, unsigned int remotePort, void *data, size_t len);
         void _sendUDPResponse(int udp_socket, struct sockaddr_in *dest_addr);
