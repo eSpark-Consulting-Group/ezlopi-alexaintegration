@@ -37,10 +37,10 @@ void fauxmoESP::_sendUDPResponse(int udp_socket, struct sockaddr_in *dest_addr)
     dest_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);
     dest_address.sin_family = AF_INET;
     dest_address.sin_port = htons(1900);
-
-    if (sendto(_udpSocket, response, strlen(response), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) 
+	int n = sendto(_udpSocket, response, strlen(response), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    if (n < 0) 
     {
-        ESP_LOGE("UDP", "Error sending UDP response");
+        ESP_LOGE("UDP", "Error sending UDP response. Error: %d",n);
     } 
     else 
     {
@@ -55,15 +55,10 @@ void fauxmoESP::_handleUDP() {
     char buffer[UDP_BUFFER_SIZE];
 
 	int len = recvfrom(_udpSocket, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
-    if (len > 0) {
-
-
+    if (len > 0)
+	{
         buffer[len] = 0;
-
-		#if DEBUG_FAUXMO_VERBOSE_UDP
-			ESP_LOGI("UDP", "[FAUXMO] UDP packet received\n%s", buffer);
-		#endif
-
+		ESP_LOGI("UDP", "[FAUXMO] UDP packet received\n%s", buffer);
         const char* request = buffer;
         if(strstr(request,"M-SEARCH") != NULL) {
             if (strstr(request,"ssdp:discover") != NULL || strstr(request,"upnp:rootdevice") != NULL || strstr(request,"device:basic:1") != NULL) {
@@ -173,10 +168,7 @@ bool fauxmoESP::_onTCPDescription(AsyncClient *client, char* url, char* body) {
     snprintf(macStr, sizeof(macStr), "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
 	char response[1024];  // Adjust the size based on your requirements
-    snprintf(response, sizeof(response), FAUXMO_DESCRIPTION_TEMPLATE,
-                                  IP2STR(&ip_info.ip), _tcp_port,
-                                  IP2STR(&ip_info.ip), _tcp_port,
-                                  macStr, macStr);
+    snprintf(response, sizeof(response), FAUXMO_DESCRIPTION_TEMPLATE, IP2STR(&ip_info.ip), _tcp_port, IP2STR(&ip_info.ip), _tcp_port, macStr, macStr);
 	_sendTCPResponse(client, "200 OK", response, "text/xml");
 	return true;
 }

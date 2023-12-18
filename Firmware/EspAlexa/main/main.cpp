@@ -18,6 +18,7 @@
 
 fauxmoESP fauxmo;
 const int state = 1;
+
 #define BLINK_GPIO GPIO_NUM_2
 
 esp_err_t hello_get_handler(httpd_req_t *req) 
@@ -27,21 +28,78 @@ esp_err_t hello_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+esp_err_t handle_request_body(httpd_req_t *req, const char *data, size_t len)
+{
+    ESP_LOGI("REQUEST","Received Data: %s",data);
+    return ESP_OK;
+}
+void processRequest(httpd_req_t *req, char *data)
+{
+    if (req->method == HTTP_GET)
+    {
+        // Assuming fauxmo.process signature is similar to fauxmo.process(TCPClient &client, bool isGet, const char *url, const String &data)
+        // Modify the arguments accordingly based on the actual signature of fauxmo.process
+
+        AsyncClient *client = (AsyncClient *)req->handle;
+        char *uriCopy = strdup(req->uri);
+        if(uriCopy)
+        {
+            if (fauxmo.process(client, true, uriCopy, (char*)data))
+            {
+                // Returning early if fauxmo.process returns true
+                free(uriCopy);
+                return;
+            }
+            free(uriCopy);
+        }
+        
+    }
+    // Handle any other body request here...
+}
+esp_err_t request_body_handler(httpd_req_t *req)
+{
+    size_t content_length = req->content_len;
+
+    if (content_length > 0)
+    {
+        // Allocate buffer for the request body
+        char *data = (char *)malloc(content_length + 1);
+        if (data)
+        {
+            // Read the request body
+            if (httpd_req_recv(req, data, content_length) == ESP_OK)
+            {
+                // Null-terminate the data
+                data[content_length] = '\0';
+                ESP_LOGI("REQ","REQ PROCESSED!");
+                // Process the request body
+                processRequest(req, data);
+                ESP_LOGI("REQ","REQ PROCESS COMPLETE!");
+            }
+            // Free the allocated buffer
+            free(data);
+        }
+    }
+    // Respond to the client
+    //if (fauxmo.process(request->client(), request->method() == HTTP_GET, request->url(), String((char *)data))) return;
+    return ESP_OK;
+}
+
 httpd_uri_t hello = 
 {
     .uri       = "/index.html",
-    .method    = HTTP_GET,
+    .method    = HTTP_POST,
     .handler   = hello_get_handler,
     .user_ctx  = NULL
 };
 
-// httpd_uri_t desc = 
-// {
-//     .uri       = "/description.xml",
-//     .method    = HTTP_GET,
-//     .handler   = hello_get_handler,
-//     .user_ctx  = NULL
-// };
+httpd_uri_t request_body_uri =
+{
+    .uri = "/description.xml",
+    .method = HTTP_POST,
+    .handler = request_body_handler,
+    .user_ctx = NULL
+};
 
 static httpd_handle_t start_webserver(void)
 {
@@ -52,8 +110,8 @@ static httpd_handle_t start_webserver(void)
     if (httpd_start(&server, &config) == ESP_OK)
     {
         ESP_LOGI("WEB SERVER", "Registering URI handlers");
-        httpd_register_uri_handler(server, &hello);
-        // httpd_register_uri_handler(server, &desc);
+        // httpd_register_uri_handler(server, &hello);
+        httpd_register_uri_handler(server, &request_body_uri);
         return server;
     }
     ESP_LOGI("WEB SERVER", "Error starting server!");
@@ -119,23 +177,23 @@ void alexa()
 
         // For the example we are turning the same LED on and off regardless fo the device triggered or the value
         gpio_set_level(BLINK_GPIO,!state); // we are nor-ing the state because our LED has inverse logic.
-
-        while(1)
-        {
-            // fauxmoESP uses an async TCP server but a sync UDP server
-            // Therefore, we have to manually poll for UDP packets
-            fauxmo.handle();
-
-            // This is a sample code to output free heap every 5 seconds
-            // This is a cheap way to detect memory leaks
-            static unsigned long last = esp_timer_get_time()/1000ULL;
-            if ((esp_timer_get_time()/1000ULL) - last > 5000) {
-                last = esp_timer_get_time()/1000ULL;
-                ESP_LOGI("HEAP_MEMORY","[MAIN] Free heap: %d bytes\n", esp_get_free_heap_size());
-            }
-            vTaskDelay(1000);
-        }
     });
+
+    while(1)
+    {
+        // fauxmoESP uses an async TCP server but a sync UDP server
+        // Therefore, we have to manually poll for UDP packets
+        fauxmo.handle();
+
+        // This is a sample code to output free heap every 5 seconds
+        // This is a cheap way to detect memory leaks
+        static unsigned long last = esp_timer_get_time()/1000ULL;
+        if ((esp_timer_get_time()/1000ULL) - last > 5000) {
+            last = esp_timer_get_time()/1000ULL;
+            ESP_LOGI("HEAP_MEMORY","[MAIN] Free heap: %d bytes\n", esp_get_free_heap_size());
+        }
+        vTaskDelay(1000);
+    }
 }
 
 extern "C" {void app_main();}
