@@ -161,7 +161,7 @@ bool fauxmoESP::_onTCPDescription(AsyncClient *client, char* url, char* body) {
 	(void) url;
 	(void) body;
 
-	DEBUG_MSG_FAUXMO("[FAUXMO] Handling /description.xml request\n");
+	ESP_LOGI("FAUXMO"," Handling /description.xml request\n");
 
 	tcpip_adapter_ip_info_t ip_info;
     ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
@@ -183,7 +183,7 @@ bool fauxmoESP::_onTCPDescription(AsyncClient *client, char* url, char* body) {
 
 bool fauxmoESP::_onTCPList(AsyncClient *client, char* url, char* body) {
 
-	DEBUG_MSG_FAUXMO("[FAUXMO] Handling list request\n");
+	ESP_LOGI("FAUXMO","Handling list request\n");
 
 	// Get the index
 	const char *pos = strstr(url,"lights");
@@ -227,7 +227,7 @@ bool fauxmoESP::_onTCPControl(AsyncClient *client, char* url, char* body) {
 
 	// "devicetype" request
 	if (strstr(body,"devicetype") != NULL) {
-		DEBUG_MSG_FAUXMO("[FAUXMO] Handling devicetype request\n");
+		ESP_LOGI("FAUXMO","Handling devicetype request\n");
 		_sendTCPResponse(client, "200 OK", (char *) "[{\"success\":{\"username\": \"2WLEDHardQrI3WHYTHoMcXHgEspsM8ZZRpSKtBQr\"}}]", "application/json");
 		return true;
 	}
@@ -239,7 +239,7 @@ bool fauxmoESP::_onTCPControl(AsyncClient *client, char* url, char* body) {
 		char *pos = strstr(url,"lights");
 		if (pos == NULL) return false;
 
-		DEBUG_MSG_FAUXMO("[FAUXMO] Handling state request\n");
+		ESP_LOGI("FAUXMO","Handling state request\n");
 
 		// Get the index
 		int id = atoi(pos+7);
@@ -281,11 +281,9 @@ bool fauxmoESP::_onTCPRequest(AsyncClient *client, bool isGet, char* url, char* 
 
     if (!_enabled) return false;
 
-	#if DEBUG_FAUXMO_VERBOSE_TCP
-		DEBUG_MSG_FAUXMO("[FAUXMO] isGet: %s\n", isGet ? "true" : "false");
-		DEBUG_MSG_FAUXMO("[FAUXMO] URL: %s\n", url.c_str());
-		if (!isGet) DEBUG_MSG_FAUXMO("[FAUXMO] Body:\n%s\n", body.c_str());
-	#endif
+	ESP_LOGI("FAUXMO","isGet: %s\n", isGet ? "true" : "false");
+	ESP_LOGI("FAUXMO","URL: %s\n", url);
+	if (!isGet) ESP_LOGW("FAUXMO","Body:\n%s\n", body);
 
 	if (strcmp(url, "/description.xml") == 0) {
         return _onTCPDescription(client, url, body);
@@ -308,9 +306,7 @@ bool fauxmoESP::_onTCPData(AsyncClient *client, void *data, size_t len) {
 	char * p = (char *) data;
 	p[len] = 0;
 
-	#if DEBUG_FAUXMO_VERBOSE_TCP
-		DEBUG_MSG_FAUXMO("[FAUXMO] TCP request\n%s\n", p);
-	#endif
+	ESP_LOGI("FAUXMO","TCP request\n%s\n", p);
 
 	// Method is the first word of the request
 	char * method = p;
@@ -345,8 +341,8 @@ bool fauxmoESP::_onTCPData(AsyncClient *client, void *data, size_t len) {
 
 void fauxmoESP::_onTCPClient(AsyncClient *client) {
 
-	if (_enabled) {
-
+	if (_enabled)
+	{
 	    for (unsigned char i = 0; i < FAUXMO_TCP_MAX_CLIENTS; i++) {
 
 	        if (!_tcpClients[i] || !_tcpClients[i]->connected()) {
@@ -365,31 +361,33 @@ void fauxmoESP::_onTCPClient(AsyncClient *client) {
 	                    _tcpClients[i] = NULL;
 	                }
 			else {
-	                    DEBUG_MSG_FAUXMO("[FAUXMO] Client %d already disconnected\n", i);
+	                    ESP_LOGI("FAUXMO","Client %d already disconnected\n", i);
 	                }
 	                delete c;
-	                DEBUG_MSG_FAUXMO("[FAUXMO] Client #%d disconnected\n", i);
+	                ESP_LOGI("FAUXMO","Client #%d disconnected\n", i);
 	            }, 0);
 
-	            client->onError([i](void *s, AsyncClient *c, int8_t error) {
-	                DEBUG_MSG_FAUXMO("[FAUXMO] Error %s (%d) on client #%d\n", c->errorTochar*(error), error, i);
+	            client->onError([i](void *s, AsyncClient *c, int8_t error)
+				{
+					char buffer[50];
+	                ESP_LOGE("FAUXMO","Error %s (%d) on client #%d\n", itoa(error,buffer,10), error, i);
 	            }, 0);
 
 	            client->onTimeout([i](void *s, AsyncClient *c, uint32_t time) {
-	                DEBUG_MSG_FAUXMO("[FAUXMO] Timeout on client #%d at %i\n", i, time);
+	                ESP_LOGE("FAUXMO","Timeout on client #%d at %i\n", i, time);
 	                c->close();
 	            }, 0);
 
                     client->setRxTimeout(FAUXMO_RX_TIMEOUT);
 
-	            DEBUG_MSG_FAUXMO("[FAUXMO] Client #%d connected\n", i);
+	            ESP_LOGI("FAUXMO","Client #%d connected\n", i);
 	            return;
 	        }
 	    }
-		DEBUG_MSG_FAUXMO("[FAUXMO] Rejecting - Too many connections\n");
+		ESP_LOGE("FAUXMO","Rejecting - Too many connections\n");
 
 	} else {
-		DEBUG_MSG_FAUXMO("[FAUXMO] Rejecting - Disabled\n");
+		ESP_LOGE("FAUXMO","Rejecting - Disabled\n");
 	}
 
     client->onDisconnect([](void *s, AsyncClient *c) {
@@ -402,10 +400,6 @@ void fauxmoESP::_onTCPClient(AsyncClient *client) {
 // -----------------------------------------------------------------------------
 // Devices
 // -----------------------------------------------------------------------------
-fauxmoESP::fauxmoESP() {
-    _udpSocket = -1;
-}
-
 fauxmoESP::~fauxmoESP() {
 	if (_udpSocket >= 0) {
         close(_udpSocket);
@@ -442,7 +436,7 @@ unsigned char fauxmoESP::addDevice(const char * device_name) {
 
     // Attach
     _devices.push_back(device);
-    DEBUG_MSG_FAUXMO("[FAUXMO] Device '%s' added as #%d\n", device_name, device_id);
+    ESP_LOGI("FAUXMO","Device '%s' added as #%d\n", device_name, device_id);
     return device_id;
 }
 
@@ -459,7 +453,7 @@ bool fauxmoESP::renameDevice(unsigned char id, const char * device_name) {
     if (id < _devices.size()) {
         free(_devices[id].name);
         _devices[id].name = strdup(device_name);
-        DEBUG_MSG_FAUXMO("[FAUXMO] Device #%d renamed to '%s'\n", id, device_name);
+        ESP_LOGI("FAUXMO","Device #%d renamed to '%s'\n", id, device_name);
         return true;
     }
     return false;
@@ -475,7 +469,7 @@ bool fauxmoESP::removeDevice(unsigned char id) {
     if (id < _devices.size()) {
         free(_devices[id].name);
 		_devices.erase(_devices.begin()+id);
-        DEBUG_MSG_FAUXMO("[FAUXMO] Device #%d removed\n", id);
+        ESP_LOGI("FAUXMO","[FAUXMO] Device #%d removed\n", id);
         return true;
     }
     return false;
@@ -559,13 +553,13 @@ void fauxmoESP::enable(bool enable) {
             return;
         }
 
-        DEBUG_MSG_FAUXMO("[FAUXMO] UDP server started\n");
+        ESP_LOGI("UDP","[FAUXMO] UDP server started\n");
     } else {
         // Stop UDP server
         if (_udpSocket >= 0) {
             close(_udpSocket);
             _udpSocket = -1;
-            DEBUG_MSG_FAUXMO("[FAUXMO] UDP server stopped\n");
+            ESP_LOGI("UDP","[FAUXMO] UDP server stopped\n");
         }
     }
 }

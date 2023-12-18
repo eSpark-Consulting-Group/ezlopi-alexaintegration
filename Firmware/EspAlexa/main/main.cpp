@@ -6,18 +6,19 @@
 #include "sdkconfig.h"
 #include "nvs_flash.h"
 #include "fauxmoESP.h"
+#include "esp_netif.h"
+#include "esp_netif.h"
+#include "esp_system.h"
 #include "driver/gpio.h"
-#include "credentials.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_http_server.h"
 #include "freertos/FreeRTOS.h"
+#include "protocol_examples_common.h"
 
 fauxmoESP fauxmo;
-
 const int state = 1;
 #define BLINK_GPIO GPIO_NUM_2
-
 
 esp_err_t hello_get_handler(httpd_req_t *req) 
 {
@@ -34,78 +35,64 @@ httpd_uri_t hello =
     .user_ctx  = NULL
 };
 
-static httpd_handle_t server = NULL;
+// httpd_uri_t desc = 
+// {
+//     .uri       = "/description.xml",
+//     .method    = HTTP_GET,
+//     .handler   = hello_get_handler,
+//     .user_ctx  = NULL
+// };
 
-void wifiSetup() 
+static httpd_handle_t start_webserver(void)
 {
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
-    
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    
-    wifi_config_t wifi_config;
-    strncpy(reinterpret_cast<char*>(wifi_config.sta.ssid), WIFI_SSID, sizeof(wifi_config.sta.ssid));
-    strncpy(reinterpret_cast<char*>(wifi_config.sta.password), WIFI_PASS, sizeof(wifi_config.sta.password));
-    wifi_config.sta.ssid[sizeof(wifi_config.sta.ssid) - 1] = '\0';
-    wifi_config.sta.password[sizeof(wifi_config.sta.password) - 1] = '\0';
+    httpd_handle_t server;
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    ESP_LOGI("WEB SERVER", "Starting server on port: '%d'", config.server_port);
 
-    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
-    esp_wifi_start();
-    esp_wifi_connect();
-    
-    // Wait for connection
-    while (1) 
+    if (httpd_start(&server, &config) == ESP_OK)
     {
-        if (esp_wifi_connect() == ESP_OK) 
-        {
-            wifi_config_t current_config;
-            esp_wifi_get_config(WIFI_IF_STA, &current_config);
-            if (strlen(reinterpret_cast<char*>(current_config.sta.ssid)) > 0) 
-            {
-                ESP_LOGI("WIFI", "Connected to SSID: %s", reinterpret_cast<char*>(current_config.sta.ssid));
-                break;
-            }
-            break;
-        }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        ESP_LOGI("WEB SERVER", "Registering URI handlers");
+        httpd_register_uri_handler(server, &hello);
+        // httpd_register_uri_handler(server, &desc);
+        return server;
+    }
+    ESP_LOGI("WEB SERVER", "Error starting server!");
+    return NULL;
+}
+
+static void stop_webserver(httpd_handle_t server)
+{
+    httpd_stop(server);
+}
+
+static void connect_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
+{
+    httpd_handle_t* server = (httpd_handle_t*) arg;
+    if (*server == NULL)
+    {
+        ESP_LOGI("WEB SERVER", "Starting webserver");
+        *server = start_webserver();
     }
 }
 
-void serverSetup() 
+static void disconnect_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    if (httpd_start(&server, &config) == ESP_OK) 
+    httpd_handle_t* server = (httpd_handle_t*) arg;
+    if (*server)
     {
-        httpd_register_uri_handler(server, &hello);
+        ESP_LOGI("WEB SERVER", "Stopping webserver");
+        stop_webserver(*server);
+        *server = NULL;
     }
 }
     
 void alexa()
 {
-    ESP_LOGI("DEBUGGING","HERE");
+    ESP_LOGI("DEBUGGING","ALEXA LOOP STARTED!");
     gpio_set_level(BLINK_GPIO,state);
-    wifiSetup();
-    vTaskDelay(1000);
-    serverSetup();
-    vTaskDelay(1000);
-    // Set fauxmoESP to not create an internal TCP server and redirect requests to the server on the defined port
-    // The TCP port must be 80 for gen3 devices (default is 1901)
-    // This has to be done before the call to enable()
     fauxmo.createServer(false);
     fauxmo.setPort(80);
-    // You have to call enable(true) once you have a WiFi connection
-    // You can enable or disable the library at any moment
-    // Disabling it will prevent the devices from being discovered and switched
     fauxmo.enable(true);
-    
-    // You can use different ways to invoke alexa to modify the devices state:
-    // "Alexa, turn kitchen on" ("kitchen" is the name of the first device below)
-    // "Alexa, turn on kitchen"
-    // "Alexa, set kitchen to fifty" (50 means 50% of brightness)
-
-    // Add virtual devices
-    fauxmo.addDevice("kitchen");
-	fauxmo.addDevice("livingroom");
 
     // You can add more devices
 	//fauxmo.addDevice("light 3");
@@ -115,8 +102,9 @@ void alexa()
     //fauxmo.addDevice("light 7");
     //fauxmo.addDevice("light 8");
 
-    fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state, unsigned char value) {
-        
+    fauxmo.onSetState([](unsigned char device_id, const char * device_name, bool state, unsigned char value)
+    {
+
         // Callback when a command from Alexa is received. 
         // You can use device_id or device_name to choose the element to perform an action onto (relay, LED,...)
         // State is a boolean (ON/OFF) and value a number from 0 to 255 (if you say "set kitchen light to 50%" you will receive a 128 here).
@@ -154,14 +142,19 @@ extern "C" {void app_main();}
 
 void app_main(void)
 {
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
+    static httpd_handle_t server = NULL;
     printf("HELLO!\n");
+    ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
-    //xTaskCreate(alexa, "Alexa_task", 4096*2, NULL, 10, NULL);
+    ESP_ERROR_CHECK(example_connect());
+
+#ifdef CONFIG_EXAMPLE_CONNECT_WIFI
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &connect_handler, &server));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &disconnect_handler, &server));
+#endif
+
+    server = start_webserver();
     alexa();
 }

@@ -122,6 +122,7 @@ if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   include("C:/Users/eSpark/EspAlexa/build/esp-idf/ulp/cmake_install.cmake")
   include("C:/Users/eSpark/EspAlexa/build/esp-idf/wifi_provisioning/cmake_install.cmake")
   include("C:/Users/eSpark/EspAlexa/build/esp-idf/main/cmake_install.cmake")
+  include("C:/Users/eSpark/EspAlexa/build/esp-idf/protocol_examples_common/cmake_install.cmake")
   include("C:/Users/eSpark/EspAlexa/build/esp-idf/AsyncTCP-master/cmake_install.cmake")
   include("C:/Users/eSpark/EspAlexa/build/esp-idf/fauxmoESP/cmake_install.cmake")
 

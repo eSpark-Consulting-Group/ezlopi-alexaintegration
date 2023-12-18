@@ -8,6 +8,8 @@
 #include <AsyncTCP.h>
 #include "templates.h"
 #include "lwip/sockets.h"
+#include "esp_http_client.h"
+#include "esp_netif_ip_addr.h"
 
 #define FAUXMO_UDP_MULTICAST_IP     IPADDR4_INIT_BYTES(239,255,255,250)
 #define FAUXMO_UDP_MULTICAST_PORT   1900
@@ -15,44 +17,21 @@
 #define FAUXMO_TCP_PORT             1901
 #define FAUXMO_RX_TIMEOUT           3
 #define FAUXMO_DEVICE_UNIQUE_ID_LENGTH  12
-
-//#define DEBUG_FAUXMO                Serial
-#ifdef DEBUG_FAUXMO
-    #if defined(ARDUINO_ARCH_ESP32)
-        #define DEBUG_MSG_FAUXMO(fmt, ...) { DEBUG_FAUXMO.printf_P((PGM_P) PSTR(fmt), ## __VA_ARGS__); }
-    #else
-        #define DEBUG_MSG_FAUXMO(fmt, ...) { DEBUG_FAUXMO.printf(fmt, ## __VA_ARGS__); }
-    #endif
-#else
-    #define DEBUG_MSG_FAUXMO(...)
-#endif
-
-#ifndef DEBUG_FAUXMO_VERBOSE_TCP
-#define DEBUG_FAUXMO_VERBOSE_TCP    true
-#endif
-
-#ifndef DEBUG_FAUXMO_VERBOSE_UDP
-#define DEBUG_FAUXMO_VERBOSE_UDP    true
-#endif
-
-#include "esp_netif_ip_addr.h"
-#include "esp_http_client.h"
-
 #define UDP_BUFFER_SIZE 512
 
 typedef std::function<void(unsigned char, const char *, bool, unsigned char)> TSetStateCallback;
 
-typedef struct {
+typedef struct
+{
     char * name;
     bool state;
     unsigned char value;
     char uniqueid[28];
 } fauxmoesp_device_t;
 
-class fauxmoESP {
-
+class fauxmoESP
+{
     public:
-        fauxmoESP();
         ~fauxmoESP();
 
         unsigned char addDevice(const char * device_name);
@@ -99,5 +78,4 @@ class fauxmoESP {
         char* _byte2hex(uint8_t zahl);
         char* _makeMD5(char* text);
 };
-
 #endif // FAUXMO_H

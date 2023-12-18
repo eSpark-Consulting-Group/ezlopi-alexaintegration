@@ -676,6 +676,13 @@ C:/Users/eSpark/EspAlexa/build/esp-idf/main/CMakeFiles/list_install_components.d
 C:/Users/eSpark/EspAlexa/build/esp-idf/main/CMakeFiles/install.dir
 C:/Users/eSpark/EspAlexa/build/esp-idf/main/CMakeFiles/install/local.dir
 C:/Users/eSpark/EspAlexa/build/esp-idf/main/CMakeFiles/install/strip.dir
+C:/Users/eSpark/EspAlexa/build/esp-idf/protocol_examples_common/CMakeFiles/__idf_protocol_examples_common.dir
+C:/Users/eSpark/EspAlexa/build/esp-idf/protocol_examples_common/CMakeFiles/edit_cache.dir
+C:/Users/eSpark/EspAlexa/build/esp-idf/protocol_examples_common/CMakeFiles/rebuild_cache.dir
+C:/Users/eSpark/EspAlexa/build/esp-idf/protocol_examples_common/CMakeFiles/list_install_components.dir
+C:/Users/eSpark/EspAlexa/build/esp-idf/protocol_examples_common/CMakeFiles/install.dir
+C:/Users/eSpark/EspAlexa/build/esp-idf/protocol_examples_common/CMakeFiles/install/local.dir
+C:/Users/eSpark/EspAlexa/build/esp-idf/protocol_examples_common/CMakeFiles/install/strip.dir
 C:/Users/eSpark/EspAlexa/build/esp-idf/AsyncTCP-master/CMakeFiles/__idf_AsyncTCP-master.dir
 C:/Users/eSpark/EspAlexa/build/esp-idf/AsyncTCP-master/CMakeFiles/edit_cache.dir
 C:/Users/eSpark/EspAlexa/build/esp-idf/AsyncTCP-master/CMakeFiles/rebuild_cache.dir
