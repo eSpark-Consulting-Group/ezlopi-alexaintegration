@@ -64,11 +64,24 @@
 "</root>"
 
 #define FAUXMO_UDP_RESPONSE_TEMPLATE "HTTP/1.1 200 OK\r\n"\
-    "CACHE-CONTROL: max-age=86400\r\n"\
-    "DATE: Fri, 15 Apr 2016 04:56:29 GMT\r\n"\
     "EXT:\r\n"\
-    "LOCATION: http://%d.%d.%d.%d:%d/setup.xml\r\n"\
-    "OPT: \"http://schemas.upnp.org/upnp/1/0/\"; ns=01\r\n"\
-    "01-NLS: %s\r\n"\
-    "ST: urn:Belkin:device:controllee:1\r\n"\
-    "USN: uuid:%s::urn:Belkin:device:controllee:1\r\n\r\n"
+    "CACHE-CONTROL: max-age=100\r\n"\
+    "LOCATION: http://%d.%d.%d.%d:%d/description.xml\r\n"\
+    "SERVER: FreeRTOS/6.0.5, UPnP/1.0, IpBridge/1.17.0\r\n"\
+    "hue-bridgeid: %s\r\n"\
+    "ST: urn:schemas-upnp-org:device:basic:1\r\n"\
+    "USN: uuid:2f402f80-da50-11e1-9b23-%s::upnp:rootdevice\r\n\r\n"
+    // "OPT: \"http://schemas.upnp.org/upnp/1/0/\"; ns=01\r\n"
+    // "DATE: Mon, 29 Jan 2024 04:56:29 GMT\r\n"
+    // "USN: uuid:%s::urn:Belkin:device:controller:1\r\n\r\n"
+
+// PROGMEM const char FAUXMO_UDP_RESPONSE_TEMPLATE[] =
+//     "HTTP/1.1 200 OK\r\n"
+//     "EXT:\r\n"
+//     "CACHE-CONTROL: max-age=100\r\n" // SSDP_INTERVAL
+//     "LOCATION: http://%d.%d.%d.%d:%d/description.xml\r\n"
+//     "SERVER: FreeRTOS/6.0.5, UPnP/1.0, IpBridge/1.17.0\r\n" // _modelName, _modelNumber
+//     "hue-bridgeid: %s\r\n"
+//     "ST: urn:schemas-upnp-org:device:basic:1\r\n"  // _deviceType
+//     "USN: uuid:2f402f80-da50-11e1-9b23-%s::upnp:rootdevice\r\n" // _uuid::_deviceType
+//     "\r\n";

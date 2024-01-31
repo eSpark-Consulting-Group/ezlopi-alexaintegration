@@ -50,7 +50,8 @@ class fauxmoESP
         void createServer(bool internal) { _internal = internal; }
         void setPort(unsigned long tcp_port) { _tcp_port = tcp_port; }
         void handle();
-
+        void _onTCPClient(AsyncClient *client);
+        
     private:
 
         AsyncServer * _server;
@@ -68,7 +69,6 @@ class fauxmoESP
         void _onUDPData(const esp_ip4_addr_t remoteIP, unsigned int remotePort, void *data, size_t len);
         void _sendUDPResponse(int udp_socket, struct sockaddr_in *dest_addr);
 
-        void _onTCPClient(AsyncClient *client);
         bool _onTCPData(AsyncClient *client, void *data, size_t len);
         bool _onTCPRequest(AsyncClient *client, bool isGet, char* url, char* body);
         bool _onTCPDescription(AsyncClient *client, char* url, char* body);

@@ -34,14 +34,14 @@ endif()
 
 # Set default install directory permissions.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "C:/Users/eSpark/.espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/bin/xtensa-esp32-elf-objdump.exe")
+  set(CMAKE_OBJDUMP "C:/Espressif/tools/xtensa-esp32-elf/esp-2021r2-patch5-8.4.0/xtensa-esp32-elf/bin/xtensa-esp32-elf-objdump.exe")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  include("C:/Users/eSpark/EspAlexa/build/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
-  include("C:/Users/eSpark/EspAlexa/build/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
-  include("C:/Users/eSpark/EspAlexa/build/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
+  include("C:/Users/eSpark/Documents/GitHub/ezlopi-alexaintegration/Firmware/EspAlexa/build/esp-idf/mbedtls/mbedtls/include/cmake_install.cmake")
+  include("C:/Users/eSpark/Documents/GitHub/ezlopi-alexaintegration/Firmware/EspAlexa/build/esp-idf/mbedtls/mbedtls/3rdparty/cmake_install.cmake")
+  include("C:/Users/eSpark/Documents/GitHub/ezlopi-alexaintegration/Firmware/EspAlexa/build/esp-idf/mbedtls/mbedtls/library/cmake_install.cmake")
 
 endif()
 

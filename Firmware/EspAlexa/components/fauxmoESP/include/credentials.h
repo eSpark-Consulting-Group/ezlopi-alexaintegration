@@ -1,2 +1,2 @@
-#define WIFI_SSID "eSpark Consulting Group"
-#define WIFI_PASS "47356880"
+#define WIFI_SSID "Zakl"
+#define WIFI_PASS "Alya1608"

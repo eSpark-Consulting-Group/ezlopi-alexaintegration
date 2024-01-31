@@ -1,6 +1,6 @@
 #include <string>
 #include <stdio.h>
-#include <esp_log.h>
+#include <ESP_LOG.h>
 #include <mbedtls/md5.h>
 #include "fauxmoESP.h"
 #include <freertos/event_groups.h>
@@ -10,7 +10,7 @@
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
 #include "esp_wifi.h"
-#include "esp_log.h"
+// #include "ESP_LOG.h"
 #include "esp_system.h"
 #include <sys/socket.h>
 
@@ -18,47 +18,66 @@
 // // UDP
 // // -----------------------------------------------------------------------------
 
+static const char *TAG = "[FAUXMO]";
+
 void fauxmoESP::_sendUDPResponse(int udp_socket, struct sockaddr_in *dest_addr) 
 {
-    ESP_LOGI("UDP", "Responding to M-SEARCH request");
+	const char *func_TAG = "_sendUDPResponse:";
+    //ESP_LOGI(TAG, "%s Responding to M-SEARCH request", func_TAG);
+
+	// char ip[16];
+  	// inet_ntop(AF_INET, &dest_addr->sin_addr, ip, sizeof(ip));
+	// //ESP_LOGW(TAG,"%s source ip address is %s", func_TAG, ip);
 
     tcpip_adapter_ip_info_t ip_info;
     ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
 
-    uint8_t mac[6];
+    uint8_t mac[6] = {0};
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
+	uint8_t index = 0;
+	char macId[50];
+	for(uint8_t i=0; i<6; i++){
+   		index += sprintf(&macId[index], "%02x", mac[i]);
+	}
 
     // Create a buffer for your response
-    char response[UDP_BUFFER_SIZE];  // Adjust the size as needed
-    snprintf(response, sizeof(response), FAUXMO_UDP_RESPONSE_TEMPLATE, IP2STR(&ip_info.ip), 80, mac, mac);
+    char response[strlen(FAUXMO_UDP_RESPONSE_TEMPLATE) + 128 + 64] = {NULL};  // Adjust the size as needed
+    int len = snprintf(response, sizeof(response), FAUXMO_UDP_RESPONSE_TEMPLATE, IP2STR(&ip_info.ip), 80, macId, macId);
 
-    // Assuming you have created a UDP socket
-    struct sockaddr_in dest_address;
-    dest_address.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-    dest_address.sin_family = AF_INET;
-    dest_address.sin_port = htons(1900);
-	int n = sendto(_udpSocket, response, strlen(response), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-    if (n < 0) 
+    //ESP_LOGI(TAG, "%s response is: %s", func_TAG, response);
+	// //ESP_LOGI(TAG, "%s strlen(response) is %d", func_TAG, len);
+	int err = sendto(_udpSocket, response, len, 0, (struct sockaddr *)dest_addr, sizeof(struct sockaddr_in));
+	vTaskDelay(100);
+    if (err < 0) 
     {
-        ESP_LOGE("UDP", "Error sending UDP response. Error: %d",n);
+		perror("sendto");
+		//ESP_LOGE(TAG, "%s Error occurred during sending: errno %d", func_TAG, errno);
+        //ESP_LOGE(TAG, "%s Error sending UDP response. Error: %d", func_TAG, err);
     } 
     else 
     {
-        ESP_LOGI("UDP", "UDP response sent");
+        //ESP_LOGI(TAG, "%s UDP response sent", func_TAG);
     }
 }
 
 void fauxmoESP::_handleUDP() {
+	const char *func_TAG = "_handleUDP:";
 
 	struct sockaddr_in source_addr;
-    socklen_t socklen = sizeof(source_addr);
-    char buffer[UDP_BUFFER_SIZE];
 
+    char buffer[UDP_BUFFER_SIZE + 64] = {NULL};
+    socklen_t socklen = sizeof(source_addr);
 	int len = recvfrom(_udpSocket, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *)&source_addr, &socklen);
-    if (len > 0)
+	
+	// char ip[16];
+	// inet_ntop(AF_INET, &source_addr.sin_addr, ip, sizeof(ip));
+	// //ESP_LOGI(TAG,"%s source ip address is %s", func_TAG, ip);
+	// //ESP_LOGI(TAG,"%s udp_socket is %d", func_TAG, _udpSocket);
+    
+	if (len > 0)
 	{
         buffer[len] = 0;
-		ESP_LOGI("UDP", "[FAUXMO] UDP packet received\n%s", buffer);
+		//ESP_LOGI(TAG,"%s UDP packet received\n%s", func_TAG, buffer);
         const char* request = buffer;
         if(strstr(request,"M-SEARCH") != NULL) {
             if (strstr(request,"ssdp:discover") != NULL || strstr(request,"upnp:rootdevice") != NULL || strstr(request,"device:basic:1") != NULL) {
@@ -66,7 +85,7 @@ void fauxmoESP::_handleUDP() {
             }
         }
     }
-}
+}	
 
 
 // // -----------------------------------------------------------------------------
@@ -74,9 +93,11 @@ void fauxmoESP::_handleUDP() {
 // // -----------------------------------------------------------------------------
 
 void fauxmoESP::_sendTCPResponse(AsyncClient *client, const char * code, char * body, const char * mime) {
+	const char *func_TAG = "_sendTCPResponse:";
 
 	size_t header_size = strlen(FAUXMO_TCP_HEADERS) + 32;
-    char* headers = (char*)malloc(header_size);
+    char headers [header_size] = {NULL};
+    // char* headers = (char*)malloc(header_size);
 	if(headers != NULL)
     {
         snprintf(
@@ -86,21 +107,25 @@ void fauxmoESP::_sendTCPResponse(AsyncClient *client, const char * code, char * 
     	);
     }
 
-	#if DEBUG_FAUXMO_VERBOSE_TCP
-		ESP_LOGI("TCP","[FAUXMO] Response:\n%s%s\n", headers, body);
-	#endif
+	//ESP_LOGI(TAG,"%s Response is\n%s%s", func_TAG, headers, body);
+
+	// char temp[strlen(headers) + strlen(body) + 16] = {NULL};
+	// strcat(temp, headers);
+	// strcat(temp, body);
+	// client->write(temp);
 
 	client->write(headers);
 	client->write(body);
 }
 
 char* fauxmoESP::_deviceJson(unsigned char id, bool all = true) {
+	const char *func_TAG = "_deviceJson:";
 
 	if (id >= _devices.size()) return "{}";
 
 	fauxmoesp_device_t device = _devices[id];
 
-	ESP_LOGI("DEVICEJSON","[FAUXMO] Sending device info for \"%s\", uniqueID = \"%s\"\n", device.name, device.uniqueid);
+	//ESP_LOGI(TAG,"%s Sending device info for \"%s\", uniqueID = \"%s\"", func_TAG, device.name, device.uniqueid);
 	size_t buffer_size = strlen(FAUXMO_DEVICE_JSON_TEMPLATE) + 64;
     char* buffer = (char*)malloc(buffer_size);
 
@@ -128,14 +153,17 @@ char* fauxmoESP::_deviceJson(unsigned char id, bool all = true) {
 
 char* fauxmoESP::_byte2hex(uint8_t zahl)
 {
-  char* hstring = new char[3];  // Assuming you want a two-character hex char* plus the null terminator
-  sprintf(hstring, "%02X", zahl);  // Use sprintf to format the hex value with leading zero if necessary
-  return hstring;
+	const char *func_TAG = "_byte2hex:";
+	char* hstring = new char[3];  // Assuming you want a two-character hex char* plus the null terminator
+	sprintf(hstring, "%02X", zahl);  // Use sprintf to format the hex value with leading zero if necessary
+	return hstring;
 }
 
 char* fauxmoESP::_makeMD5(char* text)
 {
-  unsigned char bbuf[16];
+	const char *func_TAG = "_makeMD5:";
+
+  	unsigned char bbuf[16];
     char* hash = new char[33];
     mbedtls_md5_context ctx;
     mbedtls_md5_starts_ret(&ctx);
@@ -152,11 +180,12 @@ char* fauxmoESP::_makeMD5(char* text)
 }
 
 bool fauxmoESP::_onTCPDescription(AsyncClient *client, char* url, char* body) {
+	const char *func_TAG = "_onTCPDescription:";
 
 	(void) url;
 	(void) body;
 
-	ESP_LOGI("FAUXMO"," Handling /description.xml request\n");
+	//ESP_LOGI(TAG,"%s Handling /description.xml request", func_TAG);
 
 	tcpip_adapter_ip_info_t ip_info;
     ESP_ERROR_CHECK(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
@@ -169,23 +198,30 @@ bool fauxmoESP::_onTCPDescription(AsyncClient *client, char* url, char* body) {
 
 	char response[1024];  // Adjust the size based on your requirements
     snprintf(response, sizeof(response), FAUXMO_DESCRIPTION_TEMPLATE, IP2STR(&ip_info.ip), _tcp_port, IP2STR(&ip_info.ip), _tcp_port, macStr, macStr);
+	// //ESP_LOGI(TAG,"%s Generated response is %s", func_TAG, response);
 	_sendTCPResponse(client, "200 OK", response, "text/xml");
 	return true;
 }
 
 bool fauxmoESP::_onTCPList(AsyncClient *client, char* url, char* body) {
+	const char *func_TAG = "_onTCPList:";
 
-	ESP_LOGI("FAUXMO","Handling list request\n");
+	//ESP_LOGI(TAG,"%s Handling list request", func_TAG);
 
 	// Get the index
-	const char *pos = strstr(url,"lights");
-	if (pos == NULL) return false;
-
+	char *pos = strstr(url,"lights");
+	if (pos == NULL){ 
+	// //ESP_LOGW(TAG,"%s STATE IS FALSE", func_TAG);
+	return false;
+	}
 	// Get the id
 	int id = atoi(pos + 7);
+	// //ESP_LOGW(TAG,"%s id is %d", func_TAG, id);
+	// //ESP_LOGW(TAG,"%s _devices.size() is %d", func_TAG, _devices.size());
 
 	// This will hold the response char*	
-	char response[UDP_BUFFER_SIZE];
+	char response[UDP_BUFFER_SIZE] = {NULL};
+	// response[UDP_BUFFER_SIZE-1] = '\0';
 
 	// Client is requesting all devices
 	if (0 == id) {
@@ -197,10 +233,13 @@ bool fauxmoESP::_onTCPList(AsyncClient *client, char* url, char* body) {
             {
                 strcat(response, ",");
             }
-            strcat(response, "\"");
-            strcat(response, itoa(i + 1, response + strlen(response), 10));
-            strcat(response, "\":");
-            strcat(response, _deviceJson(i, false));
+            // strcat(response, "\"");
+			char tempChar[UDP_BUFFER_SIZE] = {NULL};
+        	snprintf(tempChar, UDP_BUFFER_SIZE - strlen(tempChar),"\"%d\":%s", i + 1, _deviceJson(i, false));
+			strcat(response, tempChar);     
+			// strcat(response, itoa(i + 1, response + strlen(response), 10));
+            // strcat(response, "\":");
+            // strcat(response, _deviceJson(i, false));
         }
         strcat(response, "}");
 
@@ -208,6 +247,7 @@ bool fauxmoESP::_onTCPList(AsyncClient *client, char* url, char* body) {
 	} else {
 		strcat(response, _deviceJson(id - 1));
 	}
+	// //ESP_LOGI(TAG,"%s Generated response is %s\nResponse length is %d", func_TAG, response, strlen(response));
 
 	_sendTCPResponse(client, "200 OK", (char *) response, "application/json");
 	
@@ -216,22 +256,26 @@ bool fauxmoESP::_onTCPList(AsyncClient *client, char* url, char* body) {
 }
 
 bool fauxmoESP::_onTCPControl(AsyncClient *client, char* url, char* body) {
+	const char *func_TAG = "_onTCPControl:";
 
 	// "devicetype" request
 	if (strstr(body,"devicetype") != NULL) {
-		ESP_LOGI("FAUXMO","Handling devicetype request\n");
+		//ESP_LOGI(TAG,"%s Handling devicetype request", func_TAG);
 		_sendTCPResponse(client, "200 OK", (char *) "[{\"success\":{\"username\": \"2WLEDHardQrI3WHYTHoMcXHgEspsM8ZZRpSKtBQr\"}}]", "application/json");
 		return true;
 	}
 
+	// if((strstr(url,"renameDevice") != NULL) && (strlen(body) > 0)){
+
+	// }
+
 	// "state" request
 	if ((strstr(url,"state") != NULL) && (strlen(body) > 0)) {
-
 		// Get the index
 		char *pos = strstr(url,"lights");
 		if (pos == NULL) return false;
 
-		ESP_LOGI("FAUXMO","Handling state request\n");
+		//ESP_LOGI(TAG,"%s Handling state request", func_TAG);
 
 		// Get the index
 		int id = atoi(pos+7);
@@ -252,12 +296,13 @@ bool fauxmoESP::_onTCPControl(AsyncClient *client, char* url, char* body) {
 				if (0 == _devices[id].value) _devices[id].value = 255;
 			}
 
-			char response[512];
+			char response[512] = {NULL};
 			snprintf(
 				response, sizeof(response),
 				FAUXMO_TCP_STATE_RESPONSE,
 				id+1, _devices[id].state ? "true" : "false", id+1, _devices[id].value
 			);
+			//ESP_LOGI(TAG,"%s Response generated is: %s", func_TAG, response);
 			_sendTCPResponse(client, "200 OK", response, "text/xml");
 
 			if (_setCallback) {
@@ -270,18 +315,19 @@ bool fauxmoESP::_onTCPControl(AsyncClient *client, char* url, char* body) {
 }
 
 bool fauxmoESP::_onTCPRequest(AsyncClient *client, bool isGet, char* url, char* body) {
+	const char *func_TAG = "_onTCPRequest:";
 
     if (!_enabled) return false;
 
-	ESP_LOGI("FAUXMO","isGet: %s\n", isGet ? "true" : "false");
-	ESP_LOGI("FAUXMO","URL: %s\n", url);
-	if (!isGet) ESP_LOGW("FAUXMO","Body:\n%s\n", body);
+	//ESP_LOGI(TAG,"%s isGet: %s", func_TAG, isGet ? "true" : "false");
+	//ESP_LOGI(TAG,"%s URL: %s", func_TAG, url);
+	/*if (!isGet)*/ //ESP_LOGI(TAG,"Body:\n%s\n", body);
 
-	if (strcmp(url, "/description.xml") == 0) {
+	if (strstr(url, "/description.xml") != NULL) {
         return _onTCPDescription(client, url, body);
     }
 
-	if (strcmp(url, "/api") == 0) {
+	if (strstr(url, "/api") != NULL) {
 		if (isGet) {
 			return _onTCPList(client, url, body);
 		} else {
@@ -292,13 +338,14 @@ bool fauxmoESP::_onTCPRequest(AsyncClient *client, bool isGet, char* url, char* 
 }
 
 bool fauxmoESP::_onTCPData(AsyncClient *client, void *data, size_t len) {
+	const char *func_TAG = "_onTCPData:";
 
     if (!_enabled) return false;
 
 	char * p = (char *) data;
 	p[len] = 0;
 
-	ESP_LOGI("FAUXMO","TCP request\n%s\n", p);
+	//ESP_LOGI(TAG,"%s TCP request\n%s", func_TAG, p);
 
 	// Method is the first word of the request
 	char * method = p;
@@ -324,6 +371,10 @@ bool fauxmoESP::_onTCPData(AsyncClient *client, void *data, size_t len) {
 		p++;
 	}
 	char * body = p;
+	
+	// //ESP_LOGI(TAG,"%s TCP method: %s", func_TAG, method);
+	// //ESP_LOGI(TAG,"%s TCP url: %s", func_TAG, url);
+	// //ESP_LOGI(TAG,"%s TCP body: %s", func_TAG, body);
 
 	bool isGet = (strncmp(method, "GET", 3) == 0);
 
@@ -332,12 +383,14 @@ bool fauxmoESP::_onTCPData(AsyncClient *client, void *data, size_t len) {
 }
 
 void fauxmoESP::_onTCPClient(AsyncClient *client) {
+	const char *func_TAG = "_onTCPClient:";
 
 	if (_enabled)
 	{
+		// //ESP_LOGI("debug","_onTCPClient enabled");
 	    for (unsigned char i = 0; i < FAUXMO_TCP_MAX_CLIENTS; i++) {
 
-	        if (!_tcpClients[i] || !_tcpClients[i]->connected()) {
+				if (!_tcpClients[i] || !_tcpClients[i]->connected()) {
 
 	            _tcpClients[i] = client;
 
@@ -353,33 +406,33 @@ void fauxmoESP::_onTCPClient(AsyncClient *client) {
 	                    _tcpClients[i] = NULL;
 	                }
 			else {
-	                    ESP_LOGI("FAUXMO","Client %d already disconnected\n", i);
+	                    //ESP_LOGI(TAG,"Client %d already disconnected", i);
 	                }
 	                delete c;
-	                ESP_LOGI("FAUXMO","Client #%d disconnected\n", i);
+	                //ESP_LOGI(TAG,"Client #%d disconnected", i);
 	            }, 0);
 
 	            client->onError([i](void *s, AsyncClient *c, int8_t error)
 				{
 					char buffer[50];
-	                ESP_LOGE("FAUXMO","Error %s (%d) on client #%d\n", itoa(error,buffer,10), error, i);
+	                //ESP_LOGE(TAG,"Error %s (%d) on client #%d\n", itoa(error,buffer,10), error, i);
 	            }, 0);
 
 	            client->onTimeout([i](void *s, AsyncClient *c, uint32_t time) {
-	                ESP_LOGE("FAUXMO","Timeout on client #%d at %i\n", i, time);
+	                //ESP_LOGE(TAG,"Timeout on client #%d at %i", i, time);
 	                c->close();
 	            }, 0);
 
                     client->setRxTimeout(FAUXMO_RX_TIMEOUT);
 
-	            ESP_LOGI("FAUXMO","Client #%d connected\n", i);
+	            //ESP_LOGI(TAG,"Client #%d connected", i);
 	            return;
 	        }
 	    }
-		ESP_LOGE("FAUXMO","Rejecting - Too many connections\n");
+		//ESP_LOGE(TAG,"Rejecting - Too many connections");
 
 	} else {
-		ESP_LOGE("FAUXMO","Rejecting - Disabled\n");
+		//ESP_LOGE(TAG,"Rejecting - Disabled");
 	}
 
     client->onDisconnect([](void *s, AsyncClient *c) {
@@ -393,9 +446,11 @@ void fauxmoESP::_onTCPClient(AsyncClient *client) {
 // Devices
 // -----------------------------------------------------------------------------
 fauxmoESP::~fauxmoESP() {
+	const char *func_TAG = "~fauxmoESP:";
+
 	if (_udpSocket >= 0) {
         close(_udpSocket);
-        ESP_LOGI("FAUXMO", "UDP socket closed");
+        //ESP_LOGI(TAG,"%s UDP socket closed", func_TAG);
     }
 	// Free the name for each device
 	for (auto& device : _devices) {
@@ -411,6 +466,7 @@ void fauxmoESP::setDeviceUniqueId(unsigned char id, const char *uniqueid)
 }
 
 unsigned char fauxmoESP::addDevice(const char * device_name) {
+	const char *func_TAG = "addDevice:";
 
     fauxmoesp_device_t device;
     unsigned int device_id = _devices.size();
@@ -423,12 +479,12 @@ unsigned char fauxmoESP::addDevice(const char * device_name) {
     // create the uniqueid
     uint8_t mac[6];
 	esp_wifi_get_mac(WIFI_IF_STA, mac);
-    snprintf(device.uniqueid, 27, "%02X:%02X:%02X:%02X:%02X:%02X-%02X",
+    snprintf(device.uniqueid, 27, "%02X:%02X:%02X:%02X:%02X:%02X:00:00-%02X",
              mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], device_id);
 
     // Attach
     _devices.push_back(device);
-    ESP_LOGI("FAUXMO","Device '%s' added as #%d\n", device_name, device_id);
+    //ESP_LOGI(TAG,"%s Device '%s' added as #%d", func_TAG, device_name, device_id);
     return device_id;
 }
 
@@ -442,10 +498,12 @@ int fauxmoESP::getDeviceId(const char * device_name) {
 }
 
 bool fauxmoESP::renameDevice(unsigned char id, const char * device_name) {
+	const char *func_TAG = "renameDevice:";
+
     if (id < _devices.size()) {
         free(_devices[id].name);
         _devices[id].name = strdup(device_name);
-        ESP_LOGI("FAUXMO","Device #%d renamed to '%s'\n", id, device_name);
+        //ESP_LOGI(TAG,"%s Device #%d renamed to '%s'", func_TAG, id, device_name);
         return true;
     }
     return false;
@@ -458,10 +516,12 @@ bool fauxmoESP::renameDevice(const char * old_device_name, const char * new_devi
 }
 
 bool fauxmoESP::removeDevice(unsigned char id) {
+	const char *func_TAG = "removeDevice:";
+
     if (id < _devices.size()) {
         free(_devices[id].name);
 		_devices.erase(_devices.begin()+id);
-        ESP_LOGI("FAUXMO","[FAUXMO] Device #%d removed\n", id);
+        //ESP_LOGI(TAG,"%s Device #%d removed", func_TAG, id);
         return true;
     }
     return false;
@@ -498,7 +558,7 @@ bool fauxmoESP::setState(const char * device_name, bool state, unsigned char val
 }
 
 // -----------------------------------------------------------------------------
-// Public API
+	// Public API
 // -----------------------------------------------------------------------------
 
 bool fauxmoESP::process(AsyncClient *client, bool isGet, char* url, char* body) {
@@ -510,48 +570,72 @@ void fauxmoESP::handle() {
 }
 
 void fauxmoESP::enable(bool enable) {
+	const char *func_TAG = "enable:";
+
     if (enable == _enabled) return;
     _enabled = enable;
 
-    if (_enabled) {
-        // Start UDP server
-		ESP_LOGI("UDP","IN UDP BEFORE SOCKET!");
-        _udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
-        if (_udpSocket < 0) {
-            ESP_LOGE("FAUXMO", "Error creating UDP socket: %s", strerror(errno));
-            return;
-        }
+	if (_enabled) {
+		//ESP_LOGI(TAG, "%s Device Enabled", func_TAG);
+	} 
+	else {
+		//ESP_LOGI(TAG, "%s Device Disabled", func_TAG);
+	}
 
-        struct sockaddr_in udp_bind_addr;
-        memset(&udp_bind_addr, 0, sizeof(udp_bind_addr));
-        udp_bind_addr.sin_family = AF_INET;
-        udp_bind_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-        udp_bind_addr.sin_port = htons(1900);
+	if(_enabled)	{
+		if (_internal) {
 
-        if (bind(_udpSocket, (struct sockaddr*)&udp_bind_addr, sizeof(udp_bind_addr)) < 0) {
-            ESP_LOGE("FAUXMO", "Error binding UDP socket: %s", strerror(errno));
-            close(_udpSocket);
-            return;
-        }
 
-        // Join multicast group
-        struct ip_mreq mreq;
-        mreq.imr_multiaddr.s_addr = inet_addr("239.255.255.250");
-        mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+			//ESP_LOGI(TAG,"%s Starting TCP.", func_TAG);
+			_server = new AsyncServer(_tcp_port);
+			_server->onClient([this](void *s, AsyncClient* c) {
+				_onTCPClient(c);
+			}, 0);
+			
+			_server->begin();
+			//ESP_LOGI(TAG,"%s TCP started with port %d", func_TAG, _tcp_port);
+			
+			// Start UDP server
+			//ESP_LOGI(TAG,"%s Starting UDP.", func_TAG);
+			_udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+			if (_udpSocket < 0) {
+				//ESP_LOGE(TAG, "%s Error creating UDP socket: %s", func_TAG, strerror(errno));
+				return;
+			}
 
-        if (setsockopt(_udpSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-            ESP_LOGE("FAUXMO", "Failed to join multicast group: %s", strerror(errno));
-            close(_udpSocket);
-            return;
-        }
+			struct sockaddr_in udp_bind_addr;
+			memset(&udp_bind_addr, 0, sizeof(udp_bind_addr));
+			udp_bind_addr.sin_family = AF_INET;
+			udp_bind_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+			udp_bind_addr.sin_port = htons(FAUXMO_UDP_MULTICAST_PORT);
 
-        ESP_LOGI("UDP","[FAUXMO] UDP server started\n");
-    } else {
-        // Stop UDP server
-        if (_udpSocket >= 0) {
-            close(_udpSocket);
-            _udpSocket = -1;
-            ESP_LOGI("UDP","[FAUXMO] UDP server stopped\n");
-        }
-    }
+			if (bind(_udpSocket, (struct sockaddr*)&udp_bind_addr, sizeof(udp_bind_addr)) < 0) {
+				//ESP_LOGE(TAG, "%s Error binding UDP socket: %s", func_TAG, strerror(errno));
+				close(_udpSocket);
+				return;
+			}
+
+			// Join multicast group
+			struct ip_mreq mreq;
+			mreq.imr_multiaddr.s_addr = inet_addr("239.255.255.250");
+			mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+
+			if (setsockopt(_udpSocket, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+				//ESP_LOGE(TAG, "%s Failed to join multicast group: %s", func_TAG, strerror(errno));
+				close(_udpSocket);
+				return;
+			}
+
+
+			//ESP_LOGI(TAG,"%s UDP server started with port %d", func_TAG, FAUXMO_UDP_MULTICAST_PORT);
+		} 
+		else {
+			// Stop UDP server
+			if (_udpSocket >= 0) {
+				close(_udpSocket);
+				_udpSocket = -1;
+				//ESP_LOGI(TAG,"%s UDP server stopped", func_TAG);
+			}
+		}
+	}
 }
